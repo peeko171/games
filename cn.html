@@ -3,11 +3,46 @@
 <head>
   <meta charset="utf-8">
   <title>cat ninja</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background: #000;
+    }
+
+    #ruffle-container {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    #fullscreen-btn {
+      position: absolute;
+      bottom: 16px;
+      right: 16px;
+      z-index: 10;
+      padding: 8px 14px;
+      font-family: sans-serif;
+      font-size: 14px;
+      color: #fff;
+      background: rgba(0, 0, 0, 0.65);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    #fullscreen-btn:hover {
+      background: rgba(0, 0, 0, 0.9);
+    }
+  </style>
 </head>
 <body>
 
   <!-- Container for the Flash player -->
-  <div id="ruffle-container" style="width: 100vw; height: 100vh;"></div>
+  <div id="ruffle-container">
+    <button id="fullscreen-btn" title="Toggle Fullscreen">⛶ Fullscreen</button>
+  </div>
 
   <!-- Load Ruffle from unpkg CDN -->
   <script src="https://unpkg.com/@ruffle-rs/ruffle"></script>
@@ -18,15 +53,31 @@
       const ruffle = window.RufflePlayer.newest();
       const player = ruffle.createPlayer();
       const container = document.getElementById("ruffle-container");
+      const btn = document.getElementById("fullscreen-btn");
       
       // Make the player fill the container
       player.style.width = "100%";
       player.style.height = "100%";
       
-      container.appendChild(player);
+      container.prepend(player);
       player.ruffle().load("cn.swf");
+
+      // Toggle fullscreen on the container div
+      btn.addEventListener("click", () => {
+        if (!document.fullscreenElement) {
+          container.requestFullscreen();
+        } else {
+          document.exitFullscreen();
+        }
+      });
+
+      // Update button text when entering/exiting fullscreen (including via Esc)
+      document.addEventListener("fullscreenchange", () => {
+        btn.textContent = document.fullscreenElement ? "✕ Exit Fullscreen" : "⛶ Fullscreen";
+      });
     });
   </script>
 
 </body>
 </html>
+
