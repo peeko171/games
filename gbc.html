@@ -108,10 +108,10 @@ line-height: 1.5;
 <div class="icon" aria-hidden="true">▧</div>
 <h1>GB / GBC / NES to Hex</h1>
 <p class="description">
-Choose a Game Boy, Game Boy Color, or NES ROM, convert it, then copy the hex output.
+Choose a Game Boy, Game Boy Color, or NES ROM, or WAV file convert it, then copy the hex output.
 </p>
 <label class="file-picker">
-<input id="fileInput" type="file" accept=".gb,.gbc,.nes">
+<input id="fileInput" type="file" accept=".gb,.gbc,.nes,.wav">
 </label>
 <div class="buttons">
 <button id="convertButton" type="button" disabled>Convert to hex</button>
@@ -135,10 +135,10 @@ progress.value = 0;
 const file = fileInput.files[0];
 if (!file) {
 convertButton.disabled = true;
-status.textContent = "Choose a .gb, .gbc, or .nes file to begin.";
+status.textContent = "Choose a .gb, .gbc, .wav, or .nes file to begin.";
 return;
 }
-const validExtension = /\.(gb|gbc|nes)$/i.test(file.name);
+const validExtension = /\.(gb|gbc|nes|wav)$/i.test(file.name);
 convertButton.disabled = !validExtension;
 status.textContent = validExtension
 ? `Selected: ${file.name}`
