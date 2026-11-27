@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GB / GBC to Hex</title>
+<style>
+:root {
+color-scheme: dark;
+font-family: system-ui, sans-serif;
+background: #10131c;
+color: #f4f6fb;
+}
+* { box-sizing: border-box; }
+body {
+min-height: 100vh;
+margin: 0;
+display: grid;
+place-items: center;
+padding: 24px;
+background: radial-gradient(ellipse at top, #242a45, #10131c 60%);
+}
+.card {
+width: min(100%, 460px);
+padding: 32px;
+border: 1px solid #343a52;
+border-radius: 20px;
+background: #191d2a;
+box-shadow: 0 24px 70px #0006;
+}
+.icon {
+width: 48px;
+height: 48px;
+display: grid;
+place-items: center;
+margin-bottom: 20px;
+border-radius: 14px;
+background: #7667f5;
+font-size: 24px;
+}
+h1 { margin: 0 0 8px; font-size: 25px; }
+.description { margin: 0 0 24px; color: #aab1c5; line-height: 1.5; }
+.file-picker {
+display: block;
+padding: 16px;
+border: 1px dashed #555d78;
+border-radius: 12px;
+background: #141824;
+}
+input[type="file"] {
+width: 100%;
+color: #c6cbe0;
+font: inherit;
+}
+input[type="file"]::file-selector-button {
+margin-right: 12px;
+padding: 9px 12px;
+border: 0;
+border-radius: 8px;
+background: #30364a;
+color: white;
+font: inherit;
+cursor: pointer;
+}
+.buttons { display: flex; gap: 10px; margin-top: 16px; }
+button {
+flex: 1;
+padding: 12px 14px;
+border: 0;
+border-radius: 10px;
+color: white;
+font: inherit;
+font-weight: 650;
+cursor: pointer;
+}
+button:disabled { opacity: 0.45; cursor: not-allowed; }
+#convertButton { background: #7667f5; }
+#copyButton { background: #30364a; }
+progress {
+display: block;
+width: 100%;
+height: 10px;
+margin-top: 24px;
+border: 0;
+border-radius: 99px;
+overflow: hidden;
+background: #30364a;
+}
+progress::-webkit-progress-bar { background: #30364a; }
+progress::-webkit-progress-value { background: #8a7dff; }
+progress::-moz-progress-bar { background: #8a7dff; }
+#status {
+min-height: 24px;
+margin: 12px 0 0;
+color: #b8bfd3;
+font-size: 14px;
+}
+.note {
+margin: 18px 0 0;
+color: #858da5;
+font-size: 12px;
+line-height: 1.5;
+}
+</style>
+</head>
+<body>
+<main class="card">
+<div class="icon" aria-hidden="true">▧</div>
+<h1>GB / GBC to Hex</h1>
+<p class="description">
+Choose a Game Boy or Game Boy Color ROM, convert it, then copy the hex output.
+</p>
+<label class="file-picker">
+<input id="fileInput" type="file" accept=".gb,.gbc">
+</label>
+<div class="buttons">
+<button id="convertButton" type="button" disabled>Convert to hex</button>
+<button id="copyButton" type="button" disabled>Copy output</button>
+</div>
+<progress id="progress" value="0" max="100" aria-label="Conversion progress"></progress>
+<p id="status" role="status" aria-live="polite">Choose a .gb or .gbc file to begin.</p>
+<p class="note">The hex output stays hidden. Large files may take a while to copy.</p>
+</main>
+<script>
+const fileInput = document.querySelector("#fileInput");
+const convertButton = document.querySelector("#convertButton");
+const copyButton = document.querySelector("#copyButton");
+const progress = document.querySelector("#progress");
+const status = document.querySelector("#status");
+let hexOutput = "";
+fileInput.addEventListener("change", () => {
+hexOutput = "";
+copyButton.disabled = true;
+progress.value = 0;
+const file = fileInput.files[0];
+if (!file) {
+convertButton.disabled = true;
+status.textContent = "Choose a .gb or .gbc file to begin.";
+return;
+}
+const validExtension = /\.(gb|gbc)$/i.test(file.name);
+convertButton.disabled = !validExtension;
+status.textContent = validExtension
+? `Selected: ${file.name}`
+: "Please select a .gb or .gbc file.";
+});
+convertButton.addEventListener("click", async () => {
+const file = fileInput.files[0];
+if (!file) return;
+convertButton.disabled = true;
+copyButton.disabled = true;
+progress.value = 0;
+status.textContent = "Reading file…";
+try {
+const bytes = new Uint8Array(await file.arrayBuffer());
+const chunkSize = 256 * 1024;
+const parts = [];
+for (let start = 0; start < bytes.length; start += chunkSize) {
+const end = Math.min(start + chunkSize, bytes.length);
+let chunk = "";
+for (let i = start; i < end; i++) {
+chunk += bytes[i].toString(16).padStart(2, "0");
+}
+parts.push(chunk);
+progress.value = Math.round((end / bytes.length) * 100);
+status.textContent = `Converting… ${progress.value}%`;
+await new Promise(resolve => setTimeout(resolve, 0));
+}
+hexOutput = parts.join("");
+copyButton.disabled = false;
+status.textContent =
+`Conversion complete — ${hexOutput.length.toLocaleString()} hex characters ready.`;
+} catch {
+status.textContent = "Could not read or convert this file.";
+} finally {
+convertButton.disabled = false;
+}
+});
+copyButton.addEventListener("click", async () => {
+try {
+await navigator.clipboard.writeText(hexOutput);
+status.textContent = "Hex output copied to your clipboard.";
+alert("Copied successfully!");
+} catch {
+status.textContent =
+"Could not access the clipboard. Try opening this page in a secure browser context.";
+}
+});
+</script>
+</body>
+</html>
