@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GB / GBC / NES / WAV to Hex</title>
+<title>GB / GBC / NES / WAV / SNES to Hex</title>
 <style>
 :root {
 color-scheme: dark;
@@ -108,17 +108,17 @@ line-height: 1.5;
 <div class="icon" aria-hidden="true">▧</div>
 <h1>GB / GBC / NES / WAV to Hex</h1>
 <p class="description">
-Choose a Game Boy, Game Boy Color, or NES ROM, or WAV file convert it, then copy the hex output.
+Choose a Game Boy, Game Boy Color, SNES ROM, or NES ROM, or WAV file convert it, then copy the hex output.
 </p>
 <label class="file-picker">
-<input id="fileInput" type="file" accept=".gb,.gbc,.nes,.wav">
+<input id="fileInput" type="file" accept=".gb,.gbc,.nes,.wav,.snes">
 </label>
 <div class="buttons">
 <button id="convertButton" type="button" disabled>Convert to hex</button>
 <button id="copyButton" type="button" disabled>Copy output</button>
 </div>
 <progress id="progress" value="0" max="100" aria-label="Conversion progress"></progress>
-<p id="status" role="status" aria-live="polite">Choose a .gb, .gbc, .wav, or .nes file to begin.</p>
+<p id="status" role="status" aria-live="polite">Choose a .gb, .gbc, .wav, .snes, or .nes file to begin.</p>
 <p class="note">The hex output stays hidden. Large files may take a while to copy.</p>
 </main>
 <script>
@@ -138,7 +138,7 @@ convertButton.disabled = true;
 status.textContent = "Choose a .gb, .gbc, .wav, or .nes file to begin.";
 return;
 }
-const validExtension = /\.(gb|gbc|nes|wav)$/i.test(file.name);
+const validExtension = /\.(gb|gbc|nes|wav|snes)$/i.test(file.name);
 convertButton.disabled = !validExtension;
 status.textContent = validExtension
 ? `Selected: ${file.name}`
