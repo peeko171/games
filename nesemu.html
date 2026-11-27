@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Single-File NES Emulator</title>
+  <script src="https://unpkg.com"></script>
+  <style>
+    body {
+      background-color: #18181b;
+      color: #f4f4f5;
+      font-family: system-ui, -apple-system, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+      margin: 0;
+    }
+    h1 {
+      margin: 0 0 15px 0;
+      font-size: 1.5rem;
+    }
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 15px;
+      background: #27272a;
+      padding: 12px;
+      border-radius: 8px;
+      align-items: center;
+    }
+    button, .file-btn {
+      background-color: #e11d48;
+      color: white;
+      border: none;
+      padding: 8px 14px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      font-weight: 600;
+      transition: background 0.15s;
+    }
+    button:hover, .file-btn:hover {
+      background-color: #be123c;
+    }
+    button:disabled {
+      background-color: #52525b;
+      cursor: not-allowed;
+    }
+    input[type="file"] {
+      display: none;
+    }
+    canvas {
+      background-color: #000;
+      border: 4px solid #3f3f46;
+      border-radius: 4px;
+      width: 512px;
+      height: 480px;
+      image-rendering: pixelated;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+    }
+    .controls-info {
+      margin-top: 15px;
+      color: #a1a1aa;
+      font-size: 0.85rem;
+      text-align: center;
+      line-height: 1.5;
+    }
+    #status {
+      margin-top: 10px;
+      font-size: 0.85rem;
+      color: #34d399;
+      min-height: 1.2em;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Web NES Emulator</h1>
+
+  <div class="toolbar">
+    <label class="file-btn">
+      Load ROM (.nes)
+      <input type="file" id="romInput" accept=".nes">
+    </label>
+    <button id="muteBtn" disabled>Unmute Audio</button>
+    <button id="exportStateBtn" disabled>Export Save State</button>
+    <label class="file-btn" id="importLabel" style="background-color: #52525b; pointer-events: none;">
+      Import Save State
+      <input type="file" id="stateInput" accept=".json">
+    </label>
+  </div>
+
+  <canvas id="nes-canvas" width="256" height="240"></canvas>
+  <div id="status">Load a .nes ROM file to begin.</div>
+
+  <div class="controls-info">
+    <strong>Player 1 Controls:</strong><br>
+    D-Pad: <b>Arrow Keys</b> | Start: <b>Enter</b> | Select: <b>Right Shift</b> | A: <b>X</b> | B: <b>Z</b>
+  </div>
+
+  <script>
+    const SCREEN_WIDTH = 256;
+    const SCREEN_HEIGHT = 240;
+    const FRAMEBUFFER_SIZE = SCREEN_WIDTH * SCREEN_HEIGHT;
+
+    const canvas = document.getElementById('nes-canvas');
+    const ctx = canvas.getContext('2d');
+    const image = ctx.createImageData(SCREEN_WIDTH, SCREEN_HEIGHT);
+    const buf = new ArrayBuffer(image.data.length);
+    const buf8 = new Uint8ClampedArray(buf);
+    const buf32 = new Uint32Array(buf);
+
+    let romLoaded = false;
+    let currentRomName = "nes_game";
+    let audioCtx = null;
+    let isMuted = true;
+    const AUDIO_BUFFERING = 512;
+    const SAMPLE_COUNT = 4 * 1024;
+    const SAMPLE_MASK = SAMPLE_COUNT - 1;
+    const audioSamplesL = new Float32Array(SAMPLE_COUNT);
+    const audioSamplesR = new Float32Array(SAMPLE_COUNT);
+    let audioWriteCursor = 0;
+    let audioReadCursor = 0;
+
+    // Initialize JSNES
+    const nes = new jsnes.NES({
+      onFrame: function(framebuffer24) {
+        for (let i = 0; i < FRAMEBUFFER_SIZE; i++) {
+          buf32[i] = 0xFF000000 | framebuffer24[i];
+        }
+        image.data.set(buf8);
+        ctx.putImageData(image, 0, 0);
+      },
+      onAudioSample: function(l, r) {
+        audioSamplesL[audioWriteCursor] = l;
+        audioSamplesR[audioWriteCursor] = r;
+        audioWriteCursor = (audioWriteCursor + 1) & SAMPLE_MASK;
+      }
+    });
+
+    // Audio Setup
+    function initAudio() {
+      if (audioCtx) return;
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AudioContext();
+      const scriptProcessor = audioCtx.createScriptProcessor(AUDIO_BUFFERING, 0, 2);
+      scriptProcessor.onaudioprocess = function(e) {
+        const dstL = e.outputBuffer.getChannelData(0);
+        const dstR = e.outputBuffer.getChannelData(1);
+        const len = dstL.length;
+        for (let i = 0; i < len; i++) {
+          if (audioReadCursor === audioWriteCursor || isMuted) {
+            dstL[i] = 0;
+            dstR[i] = 0;
+          } else {
+            dstL[i] = audioSamplesL[audioReadCursor];
+            dstR[i] = audioSamplesR[audioReadCursor];
+            audioReadCursor = (audioReadCursor + 1) & SAMPLE_MASK;
+          }
+        }
+      };
+      scriptProcessor.connect(audioCtx.destination);
+    }
+
+    // Emulation Loop (60 FPS locked)
+    let lastFrameTime = 0;
+    const frameInterval = 1000 / 60;
+
+    function animationLoop(timestamp) {
+      requestAnimationFrame(animationLoop);
+      if (!romLoaded) return;
+
+      const elapsed = timestamp - lastFrameTime;
+      if (elapsed >= frameInterval) {
+        lastFrameTime = timestamp - (elapsed % frameInterval);
+        nes.frame();
+      }
+    }
+    requestAnimationFrame(animationLoop);
+
+    // Load ROM
+    document.getElementById('romInput').addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      currentRomName = file.name.replace(/\.nes$/i, '');
+      const reader = new FileReader();
+      reader.onload = function() {
+        try {
+          nes.loadROM(reader.result);
+          romLoaded = true;
+          enableControls();
+          setStatus(`Loaded: ${file.name}`);
+        } catch (err) {
+          setStatus(`Error loading ROM: ${err.message}`, true);
+        }
+      };
+      reader.readAsBinaryString(file);
+    });
+
+    // Audio Toggle
+    const muteBtn = document.getElementById('muteBtn');
+    muteBtn.addEventListener('click', function() {
+      initAudio();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      isMuted = !isMuted;
+      muteBtn.textContent = isMuted ? 'Unmute Audio' : 'Mute Audio';
+    });
+
+    // Export Save State (.json)
+    document.getElementById('exportStateBtn').addEventListener('click', function() {
+      if (!romLoaded) return;
+      try {
+        const stateObj = nes.toJSON();
+        const jsonString = JSON.stringify(stateObj);
+        const blob = new Blob([jsonString], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${currentRomName}_savestate.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        setStatus('Save state exported!');
+      } catch (err) {
+        setStatus(`Export failed: ${err.message}`, true);
+      }
+    });
+
+    // Import Save State (.json)
+    document.getElementById('stateInput').addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (!file || !romLoaded) return;
+
+      const reader = new FileReader();
+      reader.onload = function() {
+        try {
+          const stateObj = JSON.parse(reader.result);
+          nes.fromJSON(stateObj);
+          setStatus('Save state restored!');
+        } catch (err) {
+          setStatus(`Invalid save state file: ${err.message}`, true);
+        }
+      };
+      reader.readAsText(file);
+      e.target.value = ''; // Reset input so the same file can be reloaded
+    });
+
+    // Keyboard Mapping
+    const keyMap = {
+      88: jsnes.Controller.BUTTON_A,      // X
+      90: jsnes.Controller.BUTTON_B,      // Z
+      16: jsnes.Controller.BUTTON_SELECT, // Shift
+      13: jsnes.Controller.BUTTON_START,  // Enter
+      38: jsnes.Controller.BUTTON_UP,     // Up Arrow
+      40: jsnes.Controller.BUTTON_DOWN,   // Down Arrow
+      37: jsnes.Controller.BUTTON_LEFT,   // Left Arrow
+      39: jsnes.Controller.BUTTON_RIGHT   // Right Arrow
+    };
+
+    document.addEventListener('keydown', function(e) {
+      if (keyMap[e.keyCode] !== undefined) {
+        e.preventDefault();
+        nes.buttonDown(1, keyMap[e.keyCode]);
+      }
+    });
+
+    document.addEventListener('keyup', function(e) {
+      if (keyMap[e.keyCode] !== undefined) {
+        e.preventDefault();
+        nes.buttonUp(1, keyMap[e.keyCode]);
+      }
+    });
+
+    function enableControls() {
+      muteBtn.disabled = false;
+      document.getElementById('exportStateBtn').disabled = false;
+      const importLabel = document.getElementById('importLabel');
+      importLabel.style.backgroundColor = '#e11d48';
+      importLabel.style.pointerEvents = 'auto';
+    }
+
+    function setStatus(msg, isError = false) {
+      const el = document.getElementById('status');
+      el.textContent = msg;
+      el.style.color = isError ? '#f87171' : '#34d399';
+    }
+  </script>
+</body>
+</html>
