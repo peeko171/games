@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GB / GBC to Hex</title>
+<title>GB / GBC / NES to Hex</title>
 <style>
 :root {
 color-scheme: dark;
@@ -106,19 +106,19 @@ line-height: 1.5;
 <body>
 <main class="card">
 <div class="icon" aria-hidden="true">▧</div>
-<h1>GB / GBC to Hex</h1>
+<h1>GB / GBC / NES to Hex</h1>
 <p class="description">
-Choose a Game Boy or Game Boy Color ROM, convert it, then copy the hex output.
+Choose a Game Boy or Game Boy Color ROM or NES rom, convert it, then copy the hex output.
 </p>
 <label class="file-picker">
-<input id="fileInput" type="file" accept=".gb,.gbc">
+<input id="fileInput" type="file" accept=".gb,.gbc,.nes">
 </label>
 <div class="buttons">
 <button id="convertButton" type="button" disabled>Convert to hex</button>
 <button id="copyButton" type="button" disabled>Copy output</button>
 </div>
 <progress id="progress" value="0" max="100" aria-label="Conversion progress"></progress>
-<p id="status" role="status" aria-live="polite">Choose a .gb or .gbc file to begin.</p>
+<p id="status" role="status" aria-live="polite">Choose a .gb or .gbc or .nes file to begin.</p>
 <p class="note">The hex output stays hidden. Large files may take a while to copy.</p>
 </main>
 <script>
